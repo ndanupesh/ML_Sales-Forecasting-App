@@ -4,12 +4,16 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 import datetime as dt
+from pathlib import Path
+
+
+APP_DIR = Path(__file__).resolve().parent
 
 
 # Cache model loading for speed
-@st.cache(allow_output_mutation=True)
+@st.cache_resource
 def load_model():
-    model = joblib.load('sales_forecast_rf_model_tuned.pkl')
+    model = joblib.load(APP_DIR / 'sales_forecast_rf_model_tuned.pkl')
     return model
 
 
@@ -26,7 +30,16 @@ default_stock = st.sidebar.number_input("Default Stock for future predictions", 
 default_price = st.sidebar.number_input("Default Price for future predictions", min_value=0.0, value=20.0, format="%.2f")
 
 
-uploaded_file = st.file_uploader("Upload your sales data CSV file", type=['csv'])
+data_source = st.radio(
+    "Choose a dataset",
+    ("Included demo dataset", "Upload your own CSV")
+)
+
+uploaded_file = None
+if data_source == "Upload your own CSV":
+    uploaded_file = st.file_uploader("Upload your sales data CSV file", type=['csv'])
+else:
+    st.caption("Using the included mock Kaggle sales dataset.")
 
 
 def preprocess_data(data):
@@ -75,9 +88,16 @@ def build_features_for_date(date, processed_df, default_stock, default_price):
     return pd.DataFrame([features_dict])
 
 
-if uploaded_file is not None:
+if data_source == "Included demo dataset":
+    df = pd.read_csv(APP_DIR / 'mock_kaggle.csv')
+elif uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.subheader("Preview of uploaded data")
+else:
+    st.info("Please upload your sales data CSV file to get started.")
+    st.stop()
+
+if df is not None:
+    st.subheader("Preview of selected data")
     st.dataframe(df.head())
 
     processed_df = preprocess_data(df)
@@ -267,6 +287,3 @@ if uploaded_file is not None:
         - Modify Stock/Price in the What-If tab if you want to explore different scenarios.  
         - Feature importance explains which features most influence model predictions.
         """)
-
-else:
-    st.info("Please upload your sales data CSV file to get started.")
